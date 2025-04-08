@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
@@ -13,20 +15,18 @@ import (
 	"scantrix/internal/ui"
 )
 
-func main() {
-	logger.Log("🚨 Scantrix started")
+var version = "dev" // will be overridden by -ldflags during build
 
-	// CLI flags
+func main() {
+	debugFlag := flag.Bool("debug", false, "Enable debug logging to logs/debug.log")
 	excludeFlag := flag.String("exclude", "", "Regex to exclude files/folders (e.g. 'node_modules|tests')")
 	severityFlag := flag.String("severity", "", "Filter by severity: critical, warning, or info")
 	watchFlag := flag.Bool("watch", false, "Enable real-time scanning (rescan on file change)")
 	gitRepo := flag.String("git", "", "Scan a GitHub repo by URL (e.g. --git https://github.com/user/repo)")
 	pathFlag := flag.String("path", "", "Path to local directory to scan")
-	debugFlag := flag.Bool("debug", false, "Enable debug logging to logs/debug.log")
 	helpFlag := flag.Bool("help", false, "Show help message")
+	upgradeFlag := flag.Bool("self-upgrade", false, "Upgrade Scantrix to the latest version")
 
-
-	// Custom help
 	flag.Usage = func() {
 		fmt.Println(`🛡️ Scantrix - Code Security Scanner
 
@@ -38,23 +38,37 @@ Flags:`)
 		flag.PrintDefaults()
 		fmt.Println(`
 Examples:
-  scantrix --path ./my-project --exclude="vendor|tests --watch"
-  scantrix --git https://github.com/drupal/drupal --severity=critical`)
+  scantrix --path ./my-project --exclude="vendor|tests"
+  scantrix --git https://github.com/drupal/drupal --severity=critical --watch`)
 	}
 
 	flag.Parse()
+
+	if *debugFlag {
+		logger.EnableDebug()
+	}
 
 	if *helpFlag {
 		flag.Usage()
 		os.Exit(0)
 	}
 
-	if *debugFlag {
-		logger.EnableDebug()
+	if *upgradeFlag {
+		fmt.Println("🔄 Upgrading Scantrix...")
+		cmd := exec.Command("bash", "-c", "curl -sSL https://raw.githubusercontent.com/vzsigmond/scantrix/main/scripts/install.sh | bash")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Upgrade failed: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
-	var targetPath string
+	checkForNewVersion()
 
+	var targetPath string
 	if *gitRepo != "" {
 		tmpDir, err := os.MkdirTemp("", "scantrix-git-")
 		exitOnError(err, "Failed to create temp dir")
@@ -75,7 +89,6 @@ Examples:
 		targetPath = *pathFlag
 	}
 
-	// Compile exclude regex
 	var excludeRegex *regexp.Regexp
 	if *excludeFlag != "" {
 		var err error
@@ -83,10 +96,7 @@ Examples:
 		exitOnError(err, "Invalid exclude regex")
 	}
 
-	// Load rules
 	allRules := rules.LoadAll()
-
-	// Scan
 	fmt.Println("🔍 Scanning", targetPath)
 	findings, err := scanner.ScanDirectory(targetPath, allRules, excludeRegex, *severityFlag)
 	exitOnError(err, "Scan error")
@@ -96,7 +106,6 @@ Examples:
 		return
 	}
 
-	// Run TUI
 	if *watchFlag {
 		err = ui.RunRealtime(targetPath, allRules, excludeRegex, *severityFlag)
 	} else {
@@ -109,5 +118,25 @@ func exitOnError(err error, message string) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %v\n", message, err)
 		os.Exit(1)
+	}
+}
+
+func checkForNewVersion() {
+	resp, err := http.Get("https://api.github.com/repos/vzsigmond/scantrix/releases/latest")
+	if err != nil || resp.StatusCode != 200 {
+		return
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return
+	}
+
+	if result.TagName != "" && result.TagName != version {
+		fmt.Printf("\n🔔 New version available: %s (you are on %s)\n", result.TagName, version)
+		fmt.Println("👉 Run `scantrix --self-upgrade` to upgrade.")
 	}
 }
