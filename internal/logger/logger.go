@@ -10,12 +10,20 @@ import (
 )
 
 var (
-	logFile *os.File
-	once    sync.Once
+	logFile     *os.File
+	once        sync.Once
+	loggingEnabled = false
 )
+
+func EnableDebug() {
+	loggingEnabled = true
+}
 
 func ensureLogFile() {
 	once.Do(func() {
+		if !loggingEnabled {
+			return
+		}
 		_ = os.MkdirAll("logs", os.ModePerm)
 		absPath, _ := filepath.Abs("logs/debug.log")
 		fmt.Println("🔎 Writing logs to:", absPath)
@@ -35,6 +43,9 @@ func ensureLogFile() {
 }
 
 func Log(format string, args ...any) {
+	if !loggingEnabled {
+		return
+	}
 	ensureLogFile()
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Fprintf(logFile, "%s %s\n", timestamp, fmt.Sprintf(format, args...))
