@@ -26,47 +26,79 @@ It currently supports:
 - Generates real-time results from file changes (`--watch`)
 - Scan directly from git repos via `--git <repo-url>`
 - Written in Go for maximum performance
+- Checks for latest version and suggests `--self-upgrade`
 
+## 🚀 Installation
 
-## 🚀 Quick Start
+### 🔁 Auto Installer (Linux/macOS/WSL)
 
 ```bash
-git clone https://github.com/vzsigmond/scantrix.git
-cd scantrix
-./bin/scantrix --watch ./tests/fixtures
+curl -sSL https://raw.githubusercontent.com/vzsigmond/scantrix/main/scripts/install.sh | bash
+```
+
+### 🪟 Windows PowerShell
+
+```powershell
+irm https://raw.githubusercontent.com/vzsigmond/scantrix/main/scripts/install.ps1 | iex
+```
+
+### 🍫 Chocolatey (soon)
+
+```powershell
+choco install scantrix
 ```
 
 ## 🛠 Usage
 
 ```bash
-scantrix [--watch] [--exclude="regex"] [--severity=critical|warning|info] [--git=url] /path/to/project
+scantrix --path ./myapp [--watch] [--exclude="regex"] [--severity=critical|warning|info"]
+scantrix --git https://github.com/laravel/laravel --severity=critical
 ```
 
 Examples:
 
 ```bash
-scantrix ./myapp --exclude="node_modules|tests"
-scantrix --watch ./myapp "
-scantrix --git https://github.com/laravel/laravel --severity=critical
+scantrix --path ./myapp --exclude="node_modules|tests"
+scantrix --watch --severity=warning --path ./myapp
+scantrix --git https://github.com/drupal/drupal
 ```
+
+## 🆙 Self-Upgrade
+
+```bash
+scantrix --self-upgrade
+```
+
+Scantrix will also notify you when a newer version is available.
+
+---
 
 ## 📂 Log Output
 
-Scantrix writes logs to `logs/debug.log`.
+Scantrix writes logs to `logs/debug.log` **only if** `--debug` is provided.
 
+---
+
+## 📦 Building From Source
+
+```bash
+git clone https://github.com/vzsigmond/scantrix.git
+cd scantrix
+go build -o scantrix ./cmd/scantrix
+```
+
+---
 
 ## 🧩 Planned Features
 
-- Better support for frameworks & CMSes like: Drupal, Laravel, Worpdress.
-- CVE vulnerability
+- Better support for frameworks & CMSes like: Drupal, Laravel, WordPress
+- CVE vulnerability references
 - GitHub Action integration
 - CI/CD mode (non-TUI)
-- Custom rules config
+- Custom rule config
 
+---
 
 ## 🧑‍💻 Contributing
 
 Pull requests are welcome! Fork the repo and create a new branch for features or fixes.
-
-
-
