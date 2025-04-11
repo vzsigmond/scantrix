@@ -1,6 +1,12 @@
 # --- Base stage (Go)
-FROM golang:1.24-alpine AS base
-RUN apk add --no-cache bash git inotify-tools
+FROM golang:1.24-bookworm AS base
+# Install common utilities using apt.
+RUN apt-get update && apt-get install -y \
+    bash \
+    git \
+    inotify-tools \
+    wget && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # --- Dev stage
@@ -13,8 +19,9 @@ COPY . .
 RUN go build -o scantrix cmd/scantrix/main.go
 
 # --- Final binary stage
-FROM alpine:latest AS prod
-RUN apk add --no-cache ca-certificates
+FROM debian:bookworm-slim AS prod
+RUN apt-get update && apt-get install -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /root/
 COPY --from=builder /app/scantrix .
 CMD ["./scantrix"]

@@ -5,7 +5,7 @@ import (
 
     "github.com/spf13/cobra"
 
-    "scantrix/internal/tui" // your TUI package
+    "scantrix/internal/tui"
 )
 
 
