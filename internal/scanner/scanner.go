@@ -1,81 +1,69 @@
 package scanner
 
 import (
-	"bufio"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
+	"strings"
 
-	"scantrix/internal/types"
+	phpast "scantrix/pkg/php-ast"
 )
 
-func ScanDirectory(root string, rules []types.Rule, exclude *regexp.Regexp, severityFilter string) ([]Finding, error) {
-	var findings []Finding
+// Scanner struct could hold configuration/options if needed.
+type Scanner struct {
+	// Future config fields, e.g. exclude patterns, etc.
+}
 
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
+// NewScanner creates a new instance of the scanning engine.
+func NewScanner() *Scanner {
+	return &Scanner{}
+}
 
-		if exclude != nil && exclude.MatchString(path) {
+// ScanPath checks if it's a file or directory. If it's a directory, recursively scan .php files.
+func (s *Scanner) ScanPath(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("failed to stat path %q: %w", path, err)
+	}
+
+	if !info.IsDir() {
+		// Single file scan
+		return s.ScanFile(path)
+	}
+
+	// If it's a directory, walk it
+	return filepath.Walk(path, func(fullPath string, fileInfo fs.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			// Skip any path that caused an error
 			return nil
 		}
-
-		for _, rule := range rules {
-			if severityFilter != "" && rule.Severity != severityFilter {
-				continue
-			}
-
-			if !matchesExtension(path, rule.FileTypes) {
-				continue
-			}
-
-			file, readErr := os.Open(path)
-			if readErr != nil {
-				return nil
-			}
-			defer file.Close()
-
-			scanner := bufio.NewScanner(file)
-			lineNumber := 1
-
-			for scanner.Scan() {
-				line := scanner.Text()
-				if rule.Pattern.MatchString(line) {
-					findings = append(findings, Finding{
-						File:     path,
-						Line:     lineNumber,
-						RuleID:   rule.ID,
-						Severity: rule.Severity,
-						Title:    rule.Title,
-						Advice:   rule.Advice,
-					})
-				}
-				lineNumber++
+		if fileInfo.IsDir() {
+			// Don’t scan directories themselves
+			return nil
+		}
+		if strings.HasSuffix(strings.ToLower(fileInfo.Name()), ".php") {
+			// Instead of returning error immediately, log the error and continue scanning the rest.
+			if err := s.ScanFile(fullPath); err != nil {
+				fmt.Printf("Error scanning file %s: %v\n", fullPath, err)
 			}
 		}
 		return nil
 	})
-
-	return findings, err
 }
 
-func matchesExtension(filename string, extensions []string) bool {
-	for _, ext := range extensions {
-		if filepath.Ext(filename) == ext {
-			return true
-		}
+// ScanFile is a stubbed method that would parse & analyze the file in a real scenario.
+// For now, we print a placeholder message and attempt to parse the file using the AST parser.
+func (s *Scanner) ScanFile(filePath string) error {
+	fmt.Printf("Scanning file: %s\n", filePath)
+
+	// Attempt to parse the file using the AST parser.
+	// In a future step, you'll deserialize the AST output and run vulnerability checks.
+	astOutput, err := phpast.Parse(filePath)
+	if err != nil {
+		fmt.Printf("Error parsing file %s: %v\n", filePath, err)
+		return err
 	}
-	return false
-}
-
-// Finding is the result of a scan
-type Finding struct {
-	File     string
-	Line     int
-	RuleID   string
-	Severity string
-	Title    string
-	Advice   string
+	fmt.Printf("AST output for %s:\n%s\n", filePath, astOutput)
+	return nil
 }

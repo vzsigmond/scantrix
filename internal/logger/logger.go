@@ -10,17 +10,18 @@ import (
 )
 
 var (
-	logFile     *os.File
-	once        sync.Once
+	logFile        *os.File
+	logOnce        sync.Once
 	loggingEnabled = false
 )
 
+// EnableDebug turns on debug logging to logs/debug.log
 func EnableDebug() {
 	loggingEnabled = true
 }
 
 func ensureLogFile() {
-	once.Do(func() {
+	logOnce.Do(func() {
 		if !loggingEnabled {
 			return
 		}
@@ -28,7 +29,6 @@ func ensureLogFile() {
 		absPath, _ := filepath.Abs("logs/debug.log")
 		fmt.Println("🔎 Writing logs to:", absPath)
 
-		// Truncate the log file on each startup
 		var err error
 		logFile, err = os.OpenFile(absPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 		if err != nil {
@@ -42,6 +42,7 @@ func ensureLogFile() {
 	})
 }
 
+// Log writes a formatted debug message to the log file.
 func Log(format string, args ...any) {
 	if !loggingEnabled {
 		return
@@ -52,10 +53,7 @@ func Log(format string, args ...any) {
 	logFile.Sync()
 }
 
-func Sprintf(format string, args ...any) string {
-	return fmt.Sprintf(format, args...)
-}
-
+// Close gracefully closes the log file.
 func Close() {
 	if logFile != nil {
 		logFile.Close()

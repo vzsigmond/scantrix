@@ -28,3 +28,9 @@ innerHTML = "<div>" + userInput + "</div>";      // DOM XSS
 // More RCE
 shell_exec($_GET['cmd']);
 ?>
+
+
+<?php
+// More RCE
+shell_exec($_GET['cmd']);
+?>

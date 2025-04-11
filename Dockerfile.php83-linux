@@ -1,0 +1,39 @@
+FROM php:8.3-cli AS php-builder
+
+# Install dependencies and the AST extension
+RUN apt-get update && apt-get install -y \
+  git unzip autoconf build-essential pkg-config \
+  libonig5 strace file \
+  && pecl install ast \
+  && docker-php-ext-enable ast \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create the export directories
+RUN mkdir -p /export/bin /export/lib /export/extensions
+
+# Copy the PHP binary
+RUN cp /usr/local/bin/php /export/php
+
+# Copy the PHP ini
+RUN cp /usr/local/etc/php/php.ini-development /export/php.ini
+
+# Copy ast.so and any PHP extensions
+RUN cp /usr/local/lib/php/extensions/*/ast.so /export/lib/
+
+# Extract only safe non-glibc .so dependencies
+RUN \
+  deps=$( \
+    ldd /usr/local/bin/php | awk '/=>/ {print $3}' && \
+    ldd /usr/local/lib/php/extensions/*/*.so | awk '/=>/ {print $3}' \
+  ) && \
+  for dep in $deps; do \
+    if [ -f "$dep" ] && ! echo "$dep" | grep -qE 'libc\.so|ld-linux|libm\.so|libpthread\.so|librt\.so|libdl\.so'; then \
+      cp -v "$dep" /export/lib/; \
+    fi \
+  done
+
+
+# Optional: copy `ld-linux-x86-64.so.2` if needed for bootstrapping
+RUN cp /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /export/lib/ || true
+
+CMD ["sh"]
